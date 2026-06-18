@@ -35,18 +35,27 @@ class GaussianCombinatorialFeatures:
     ) -> None:
         if in_dim < 1:
             raise ValueError("in_dim must be positive")
+        if rff_dim < 0:
+            raise ValueError("rff_dim must be non-negative")
+        if subset_dim < 0:
+            raise ValueError("subset_dim must be non-negative")
+        if not np.isfinite(sigma) or sigma <= 0.0:
+            raise ValueError("sigma must be positive and finite")
         self.in_dim = int(in_dim)
         self.rff_dim = int(rff_dim)
         self.subset_dim = int(subset_dim)
         self.subset_size = int(max(1, min(subset_size, in_dim)))
-        self.sigma = float(max(sigma, 1e-6))
+        self.sigma = float(sigma)
         rng = np.random.default_rng(seed)
         self.W = rng.normal(0.0, 1.0 / self.sigma, size=(self.rff_dim, self.in_dim))
         self.b = rng.uniform(0.0, 2.0 * np.pi, size=(self.rff_dim,))
-        self.subsets = np.stack(
-            [rng.choice(self.in_dim, size=self.subset_size, replace=False) for _ in range(self.subset_dim)],
-            axis=0,
-        )
+        if self.subset_dim:
+            self.subsets = np.stack(
+                [rng.choice(self.in_dim, size=self.subset_size, replace=False) for _ in range(self.subset_dim)],
+                axis=0,
+            )
+        else:
+            self.subsets = np.empty((0, self.subset_size), dtype=int)
         self.anchors = rng.normal(0.0, 0.8, size=(self.subset_dim, self.subset_size))
         self.lengths = rng.uniform(0.45, 1.75, size=(self.subset_dim,))
         self.signs = rng.choice([-1.0, 1.0], size=(self.subset_dim, self.subset_size))

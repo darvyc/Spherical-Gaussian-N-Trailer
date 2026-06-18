@@ -23,6 +23,14 @@ python -m sga_ntrailer.cli eval-policy --trailers 3 --policy runs/policy.pt --st
 python examples/demo_mppi.py
 ```
 
+For development checks:
+
+```bash
+pip install -e .[dev]
+python -m pytest
+python -m ruff check .
+```
+
 ## Repository layout
 
 ```text
@@ -45,7 +53,7 @@ docs/
   papers.md
   limitations.md
 tests/
-  pytest coverage for dynamics, geometry, features, and environment
+  pytest coverage for config validation, dynamics, geometry, features, MPPI, and environment
 ```
 
 ## Control formulation
@@ -82,6 +90,12 @@ The logarithmic map `log_{q_path}(q_vehicle)` gives a two-coordinate tangent err
 - Neural policy evaluation.
 - JSON rollout traces with state, action, reward, cross-track error, heading error, and jackknife flags.
 - Pure NumPy simulator; PyTorch is only required for training/evaluating the learned policy.
+
+## Validation contracts
+
+The public constructors reject invalid physical scales, articulation limits, reward-weight tables, feature dimensions, and empty MPPI sampling grids. This keeps failures close to the caller instead of surfacing later as divide-by-zero, empty-stack, or controller-weight errors.
+
+The default test suite checks finite RK4 state propagation, jackknife detection, spherical log/exp round trips, encoder output shape, deterministic zero-noise MPPI behavior, bounded MPPI actions, and gym-like environment stepping.
 
 ## Research basis
 

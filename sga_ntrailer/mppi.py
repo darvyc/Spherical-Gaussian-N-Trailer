@@ -34,8 +34,17 @@ class MPPIController:
         self.config = env.config
         self.horizon = int(horizon)
         self.samples = int(samples)
+        if self.horizon < 1:
+            raise ValueError("horizon must be >= 1")
+        if self.samples < 1:
+            raise ValueError("samples must be >= 1")
         self.temperature = float(max(temperature, 1e-6))
-        self.noise_std = float(noise_std or (0.45 * self.config.max_steer))
+        if noise_std is None:
+            self.noise_std = float(0.45 * self.config.max_steer)
+        else:
+            if not np.isfinite(noise_std) or noise_std < 0.0:
+                raise ValueError("noise_std must be finite and non-negative")
+            self.noise_std = float(noise_std)
         self.smoothing = float(np.clip(smoothing, 0.0, 0.99))
         self.rng = np.random.default_rng(seed)
         self.mean_sequence = np.zeros(self.horizon, dtype=float)

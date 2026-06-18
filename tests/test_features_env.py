@@ -2,7 +2,7 @@ import numpy as np
 
 from sga_ntrailer.config import NTrailerConfig
 from sga_ntrailer.env import NTrailerReverseEnv
-from sga_ntrailer.features import SphericalGaussianEncoder
+from sga_ntrailer.features import GaussianCombinatorialFeatures, SphericalGaussianEncoder
 from sga_ntrailer.path import Path2D
 
 
@@ -27,3 +27,11 @@ def test_env_step():
     assert np.isfinite(reward)
     assert isinstance(done, bool)
     assert "cross_track" in info
+
+
+def test_gaussian_features_can_disable_random_blocks():
+    features = GaussianCombinatorialFeatures(in_dim=3, rff_dim=0, subset_dim=0, seed=1)
+    x = features(np.array([0.2, -0.1, 0.4], dtype=float))
+
+    assert x.shape == (3,)
+    assert np.allclose(x, [0.2, -0.1, 0.4])
