@@ -47,7 +47,7 @@ class NTrailerReverseEnv:
 
     def _initial_state(self, noise: bool = True) -> NTrailerState:
         start, heading, _ = self.path.sample(0.0)
-        theta = heading + np.pi  # reverse vehicle points opposite nominal path progress at start
+        theta = heading + np.pi
         alpha = np.zeros(self.config.n_trailers, dtype=float)
         x, y = float(start[0]), float(start[1])
         if noise:
@@ -70,22 +70,28 @@ class NTrailerReverseEnv:
         self.last_info = info
         return obs
 
+    @staticmethod
+    def reverse_heading_error(info: EncoderInfo) -> float:
+        return float(wrap_angle(info.heading_error - np.pi))
+
+    def progress_fraction(self, info: EncoderInfo) -> float:
+        return float(np.clip(info.progress / max(self.path.total_length, 1e-9), 0.0, 1.0))
+
     def reward(self, state: NTrailerState, steer: float, prev_steer: float, info: EncoderInfo) -> float:
         w = self.config.reward_weights
         alpha = state.alpha
-        heading_reverse = wrap_angle(state.theta0 - info.heading_error + np.pi)
-        # Use direct path error terms and soft articulation barrier.
+        reverse_error = self.reverse_heading_error(info)
+        progress_bonus = w["progress"] * self.progress_fraction(info)
         cost = 0.0
         cost += w["cross_track"] * (info.cross_track / self.config.cross_track_scale) ** 2
-        cost += w["heading"] * (info.heading_error / np.pi) ** 2
+        cost += w["heading"] * (reverse_error / np.pi) ** 2
         cost += w["articulation"] * float(np.mean((alpha / self.config.soft_articulation) ** 2))
         cost += w["steer"] * (steer / self.config.max_steer) ** 2
         cost += w["steer_rate"] * ((steer - prev_steer) / max(self.config.max_steer_rate, 1e-9)) ** 2
-        cost += 0.001 * float(heading_reverse**2)
         cost += 8.0 * articulation_barrier(alpha, self.config)
         if is_jackknifed(state, self.config):
             cost += w["jackknife"]
-        return float(-cost)
+        return float(progress_bonus - cost)
 
     def step(self, action: np.ndarray | list[float] | float) -> tuple[np.ndarray, float, bool, dict[str, Any]]:
         steer = float(np.asarray(action).reshape(-1)[0])
@@ -101,7 +107,7 @@ class NTrailerReverseEnv:
         self.last_info = enc_info
         info = StepInfo(
             cross_track=enc_info.cross_track,
-            heading_error=enc_info.heading_error,
+            heading_error=self.reverse_heading_error(enc_info),
             progress=enc_info.progress,
             curvature=enc_info.curvature,
             jackknife=jackknife,
